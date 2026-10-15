@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
+import { downloadCrateZip, getIncludedFiles, getTotalSize } from './download';
 
 // ============================================================================
 // MLIR TEMPLATE ENGINE (TypeScript port for the interactive demo)
@@ -284,26 +285,29 @@ export default function App() {
                 <p className="text-xs text-gray-500">Safe {'{{VAR}}'} interpolation — never touches MLIR's {'{ }'} braces</p>
               </div>
             </div>
-            <nav className="flex gap-1 bg-gray-800/50 rounded-lg p-1">
-              {([
-                ['overview', '📋 Overview'],
-                ['playground', '⚡ Playground'],
-                ['files', '📁 Files'],
-                ['usage', '🦀 Usage'],
-              ] as const).map(([tab, label]) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                    activeTab === tab
-                      ? 'bg-emerald-500/20 text-emerald-400 shadow-sm'
-                      : 'text-gray-400 hover:text-gray-200'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </nav>
+            <div className="flex items-center gap-3">
+              <nav className="flex gap-1 bg-gray-800/50 rounded-lg p-1">
+                {([
+                  ['overview', '📋 Overview'],
+                  ['playground', '⚡ Playground'],
+                  ['files', '📁 Files'],
+                  ['usage', '🦀 Usage'],
+                ] as const).map(([tab, label]) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                      activeTab === tab
+                        ? 'bg-emerald-500/20 text-emerald-400 shadow-sm'
+                        : 'text-gray-400 hover:text-gray-200'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </nav>
+              <DownloadButton />
+            </div>
           </div>
         </div>
       </header>
@@ -327,8 +331,100 @@ export default function App() {
 // ============================================================================
 
 function OverviewTab() {
+  const [downloading, setDownloading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const files = useMemo(() => getIncludedFiles(), []);
+  const totalSize = useMemo(() => getTotalSize(), []);
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      await downloadCrateZip();
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2000);
+    } catch (err) {
+      console.error('Download failed:', err);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div className="space-y-8 max-w-4xl">
+      {/* Big Download Card */}
+      <div className="bg-gradient-to-br from-emerald-950/60 via-cyan-950/40 to-gray-900 border border-emerald-800/50 rounded-2xl p-8 shadow-2xl shadow-emerald-500/10">
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                <svg className="w-7 h-7 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold">Download the Rust Crate</h2>
+            </div>
+            <p className="text-gray-400 mb-4">
+              Get the complete <code className="px-1.5 py-0.5 bg-gray-800 rounded text-emerald-400">mlir-templates</code> crate as a zip file.
+              Includes source code, templates, tests, and examples — ready to use or push to GitHub.
+            </p>
+            <div className="flex flex-wrap gap-4 text-xs text-gray-500">
+              <span className="flex items-center gap-1">
+                <span className="text-emerald-400">📦</span> {files.length} files
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="text-emerald-400">📏</span> {(totalSize / 1024).toFixed(1)} KB source
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="text-emerald-400">🦀</span> Rust 2021 edition
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={handleDownload}
+            disabled={downloading}
+            className={`flex items-center gap-3 px-8 py-4 rounded-xl font-bold text-base transition-all whitespace-nowrap ${
+              success
+                ? 'bg-emerald-500 text-white scale-105'
+                : 'bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-gray-900 shadow-xl shadow-emerald-500/30 hover:scale-105 hover:shadow-emerald-500/40'
+            } disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
+          >
+            {downloading ? (
+              <>
+                <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Packaging zip...
+              </>
+            ) : success ? (
+              <>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+                Downloaded!
+              </>
+            ) : (
+              <>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Download mlir-templates.zip
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* File list preview */}
+        <div className="mt-6 pt-6 border-t border-emerald-900/30">
+          <p className="text-xs text-gray-500 mb-2 font-medium uppercase tracking-wider">Included files:</p>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-1">
+            {files.map(f => (
+              <span key={f} className="text-xs font-mono text-gray-500 truncate">{f}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <div className="bg-gradient-to-r from-emerald-950/40 to-cyan-950/40 border border-emerald-900/50 rounded-2xl p-8">
         <h2 className="text-3xl font-bold mb-3">What problem does this solve?</h2>
         <p className="text-gray-300 leading-relaxed text-lg">
@@ -718,6 +814,61 @@ function RenderedHighlight({ rendered, params }: { rendered: string; params: Rec
         </div>
       ))}
     </>
+  );
+}
+
+function DownloadButton() {
+  const [downloading, setDownloading] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      await downloadCrateZip();
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2000);
+    } catch (err) {
+      console.error('Download failed:', err);
+      alert('Download failed. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleDownload}
+      disabled={downloading}
+      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+        success
+          ? 'bg-emerald-500 text-white'
+          : 'bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-gray-900 shadow-lg shadow-emerald-500/20'
+      } disabled:opacity-50 disabled:cursor-not-allowed`}
+    >
+      {downloading ? (
+        <>
+          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          <span>Packaging...</span>
+        </>
+      ) : success ? (
+        <>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          <span>Downloaded!</span>
+        </>
+      ) : (
+        <>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          <span>Download Crate</span>
+        </>
+      )}
+    </button>
   );
 }
 
